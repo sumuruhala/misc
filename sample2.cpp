@@ -5,29 +5,8 @@
 #endif
 #define TEST_RETURN(_Ret)   return _Ret
 
-#if 1
-
-template<typename T>
-struct XXXXXXXXXXXXXXXXXXXX__deduced_type_is_;
-
-#	define SHOW_T(TYPE)\
-		XXXXXXXXXXXXXXXXXXXX__deduced_type_is_<TYPE>{}
-
-#	define EXPR_T(EXPR)\
-		XXXXXXXXXXXXXXXXXXXX__deduced_type_is_<decltype(EXPR)>{}
-
-#else
-
-#	define SHOW_T(TYPE)
-#	define EXPR_T(EXPR)
-
-#endif
-
 #include<iostream>
 #include<cstdio>
-#if 0
-#	include"header.h"
-#endif
 
 using namespace std;
 //--------------------------------------------------------
@@ -60,13 +39,13 @@ enum
 constexpr size_t MAX_STR_SIZE = 200;
 
 char cMathExpr[MAX_STR_SIZE] =
-	// #if _POWER_ENABLED_ && _BRACES_ENABLED_
-		"-1.0+1.0+123-(123^1)^1*{20^(20-[19*1])-(212-211*1)*1*[19]}/123-122+[[-123.3748]-{2.0}^(-1.0)]+1^(([1^1]^0)^(1^1))+(-(0.0))-(-(-(1.0)))";
-	// #elif _POWER_ENABLED_
-	// 	"-1.0+1.0+123-(123^1)^1*(20^(20-19*1)-(212-211*1)*1*19)/123-122+(-123.3748-(2.0)^(-1.0))+1^(((1^1)^0)^(1^1))+(-(0.0))-(-(-(1.0)))";
-	// #else
-	// 	"123-123*(20-(212-211*1)*1*19)/123-122+123";
-	// #endif
+// #if _POWER_ENABLED_ && _BRACES_ENABLED_
+"-1.0+1.0+123-(123^1)^1*{20^(20-[19*1])-(212-211*1)*1*[19]}/123-122+[[-123.3748]-{2.0}^(-1.0)]+1^(([1^1]^0)^(1^1))+(-(0.0))-(-(-(1.0)))";
+// #elif _POWER_ENABLED_
+// 	"-1.0+1.0+123-(123^1)^1*(20^(20-19*1)-(212-211*1)*1*19)/123-122+(-123.3748-(2.0)^(-1.0))+1^(((1^1)^0)^(1^1))+(-(0.0))-(-(-(1.0)))";
+// #else
+// 	"123-123*(20-(212-211*1)*1*19)/123-122+123";
+// #endif
 
 template<typename T>
 std::strstream&& operator<<(std::strstream&& str, T&& e)
@@ -111,43 +90,17 @@ const char* MyException::what() const noexcept
 class DLLEXPORT CSimpleCalculator
 {
 public:
-	explicit CSimpleCalculator(std::string pstrExpression = "\0")
-		: m_strExp(pstrExpression), m_tokBuff(new char[MAX_BUF_SIZE])
-		, m_strIdx{}, m_bufIdx{}, m_currTok(NONE)
-	{
-	}
+	explicit CSimpleCalculator(std::string pstrExpression = "\0");
 
 	CSimpleCalculator(CSimpleCalculator&&) = default;
 	CSimpleCalculator& operator=(CSimpleCalculator&&) = default;
-	
+
 	~CSimpleCalculator() = default;
 
 	double  Calculate();
 
 public:
-	enum Token
-	{
-		NONE,
-// #if _POWER_ENABLED_
-		POWER,
-// #endif
-// #if _BRACES_ENABLED_
-		LBRACE,
-		RBRACE,
-		LSQRBR,
-		RSQRBR,
-// #endif
-		LPARE,
-		RPARE,
-		NUM,
-		DOT,
-		ADD,
-		PLUS = ADD,
-		SUB,
-		MINUS = SUB,
-		MUL,
-		DIV,
-	};
+	enum Token : unsigned char;
 
 private:
 
@@ -189,9 +142,33 @@ private:
 	std::string::size_type m_strIdx;
 	std::string::size_type m_bufIdx;
 
-    Token m_currTok;
+	Token m_currTok;
 
 	static const std::unordered_map<char, Token> TokenTable;
+};
+
+enum CSimpleCalculator::Token : unsigned char
+{
+	NONE,
+	// #if _POWER_ENABLED_
+	POWER,
+	// #endif
+	// #if _BRACES_ENABLED_
+	LBRACE,
+	RBRACE,
+	LSQRBR,
+	RSQRBR,
+	// #endif
+	LPARE,
+	RPARE,
+	NUM,
+	DOT,
+	ADD,
+	PLUS = CSimpleCalculator::Token::ADD,
+	SUB,
+	MINUS = CSimpleCalculator::Token::SUB,
+	MUL,
+	DIV,
 };
 
 using EToken = CSimpleCalculator::Token;
@@ -200,23 +177,30 @@ const size_t CSimpleCalculator::MAX_BUF_SIZE; // = 50
 
 const std::unordered_map<char, EToken> CSimpleCalculator::TokenTable =
 {
-	{'+', ADD},
-	{'-', SUB},
-	{'*', MUL},
-	{'/', DIV},
-	{'.', DOT},
-// #if _POWER_ENABLED_
-	{'^', POWER},
-// #endif // _POWER_ENABLED_
-	{'(', LPARE},
-	{')', RPARE},
-// #if _BRACES_ENABLED_
-	{'{', LBRACE},
-	{'}', RBRACE},
-	{'[', LSQRBR},
-	{']', RSQRBR},
-// #endif // _BRACES_ENABLED_
+	{ '+', ADD },
+	{ '-', SUB },
+	{ '*', MUL },
+	{ '/', DIV },
+	{ '.', DOT },
+	// #if _POWER_ENABLED_
+	{ '^', POWER },
+	// #endif // _POWER_ENABLED_
+	{ '(', LPARE },
+	{ ')', RPARE },
+	// #if _BRACES_ENABLED_
+	{ '{', LBRACE },
+	{ '}', RBRACE },
+	{ '[', LSQRBR },
+	{ ']', RSQRBR },
+	// #endif // _BRACES_ENABLED_
 };
+
+
+CSimpleCalculator::CSimpleCalculator(std::string pstrExpression)
+	: m_strExp(pstrExpression), m_tokBuff(new char[MAX_BUF_SIZE])
+	, m_strIdx(), m_bufIdx(), m_currTok(Token::NONE)
+{
+}
 
 EToken CSimpleCalculator::consumeToken()
 {
@@ -229,24 +213,24 @@ EToken CSimpleCalculator::consumeToken()
 		switch( s )
 		{
 		case BEGIN:
+		{
+			if( isdigit(lookAhead()) )
 			{
-				if( isdigit(lookAhead()) )
-				{
-					s = IN_NUM;
-					t = NUM; // and we also need m_tokBuff to get the actual number.
-					break;
-				}
-
-				auto chLA = lookAhead();
-				auto ptr = TokenTable.find(chLA);
-				if( ptr != TokenTable.end() )
-					t = ptr->second;
-				else
-					t = NONE;
+				s = IN_NUM;
+				t = NUM; // and we also need m_tokBuff to get the actual number.
+				break;
 			}
 
-			s = END;
-			break;
+			auto chLA = lookAhead();
+			auto ptr = TokenTable.find(chLA);
+			if( ptr != TokenTable.end() )
+				t = ptr->second;
+			else
+				t = NONE;
+		}
+
+		s = END;
+		break;
 
 		case IN_NUM:
 			if( isdigit(lookAhead()) )
@@ -254,9 +238,9 @@ EToken CSimpleCalculator::consumeToken()
 			goto __END;
 
 		case END:
-		__END:
-			m_tokBuff[m_bufIdx] = '\0';
-			return t;
+			__END:
+				m_tokBuff[m_bufIdx] = '\0';
+				return t;
 		} // end switch
 
 		m_tokBuff[m_bufIdx++] = consumeChar();
@@ -319,23 +303,23 @@ double CSimpleCalculator::factor(bool isStartOfExpr, bool allowPower) // ---> NU
 	}
 	else if( !isStartOfExpr && !allowPower )
 	{
-// #if _BRACES_ENABLED_
+		// #if _BRACES_ENABLED_
 		if( LPARE == m_currTok || LBRACE == m_currTok || LSQRBR == m_currTok )
-// #else
-// 		if( LPARE == m_currTok )
-// #endif
+			// #else
+			// 		if( LPARE == m_currTok )
+			// #endif
 		{
-// #if _BRACES_ENABLED_
+			// #if _BRACES_ENABLED_
 			Token rightTok = s_getCounterpart(m_currTok); // save m_currTok
 
 			match(m_currTok); // match the left brace/sqr-brace/parenthese
 			res = expr();
 			match(rightTok); // get the corresponding right brace/sqr-brace/parenthese and match it.
-// #else
-// 			match(LPARE);
-// 			res = expr();
-// 			match(RPARE);
-// #endif
+							 // #else
+							 // 			match(LPARE);
+							 // 			res = expr();
+							 // 			match(RPARE);
+							 // #endif
 		}
 		else if( NUM == m_currTok )
 		{
@@ -364,7 +348,7 @@ double CSimpleCalculator::factor(bool isStartOfExpr, bool allowPower) // ---> NU
 #if _BRACES_ENABLED_
 	if( LPARE == m_currTok || LBRACE == m_currTok || LSQRBR == m_currTok )
 #else
-	if(LPARE == m_currTok)
+	if( LPARE == m_currTok )
 #endif
 	{
 #if _BRACES_ENABLED_
@@ -406,7 +390,7 @@ double CSimpleCalculator::factor(bool isStartOfExpr, bool allowPower) // ---> NU
 		}
 		else // if the sign is not at the begining of the expression, then syntax error occurs and reject it.
 			notifErr(m_currTok); // there is no parentheses surrounding the explicitly signed number!
-		// program halted.
+								 // program halted.
 	}
 
 #if _POWER_ENABLED_
@@ -487,7 +471,7 @@ void CSimpleCalculator::notifErr(Token currTok) const
 	if( SUB == currTok )
 		throw MyException{ std::strstream{} << "Illegal negative sign!" << '\n' };
 	else
-		throw MyException{std::strstream{} << "Illegal positive sign!" << '\n' };
+		throw MyException{ std::strstream{} << "Illegal positive sign!" << '\n' };
 }
 
 double CSimpleCalculator::s_assertNotZero(double dbl)
@@ -496,7 +480,7 @@ double CSimpleCalculator::s_assertNotZero(double dbl)
 		return dbl;
 	else
 	{
-		throw MyException{std::strstream{} << "Error: Divided by Zero!" << '\n' };
+		throw MyException{ std::strstream{} << "Error: Divided by Zero!" << '\n' };
 	}
 	//return 1.0;
 }
@@ -512,8 +496,8 @@ EToken CSimpleCalculator::s_getCounterpart(Token t)
 		return RBRACE;
 	case LSQRBR:
 		return RSQRBR;
-    default:
-        break;
+	default:
+		break;
 	}
 	return NONE;
 }
@@ -535,9 +519,6 @@ private:
 	std::unique_ptr<CSimpleCalculator> my_upImpl;
 };
 
-
-
-
 MyCalculator::MyCalculator(std::string s)
 	: my_upImpl(new CSimpleCalculator(std::move(s)))
 {
@@ -552,25 +533,24 @@ MyCalculator::~MyCalculator() = default;
 
 
 
-
 int TEST_ENTRY(int ret = 0)
 {
-	CSimpleCalculator sc(cMathExpr);
-	cout<< sc.Calculate() <<endl;
+	MyCalculator sc(cMathExpr);
+	cout << sc.Calculate() << endl;
 
-    TEST_RETURN(ret);
+	TEST_RETURN(ret);
 }
 
 int TEST_ENTRY(int argc, const char* args[])
 {
-    TEST_RETURN(TEST_ENTRY());
+	TEST_RETURN(TEST_ENTRY());
 }
 
 } // namespace
 
 int TEST_ENTRY(int argc, const char* args[])
 {
-    namespace TEST_NS = ns1;
+	namespace TEST_NS = ns1;
 
-    return TEST_NS::TEST_ENTRY(argc, args);
+	return TEST_NS::TEST_ENTRY(argc, args);
 }
