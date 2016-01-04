@@ -23,7 +23,6 @@ using namespace std;
 namespace ns1 {
 
 
-/****power enable ?****/
 // #define _POWER_ENABLED_		1
 // #define _BRACES_ENABLED_	1
 
@@ -39,13 +38,13 @@ enum
 constexpr size_t MAX_STR_SIZE = 200;
 
 char cMathExpr[MAX_STR_SIZE] =
-// #if _POWER_ENABLED_ && _BRACES_ENABLED_
-"-1.0+1.0+123-(123^1)^1*{20^(20-[19*1])-(212-211*1)*1*[19]}/123-122+[[-123.3748]-{2.0}^(-1.0)]+1^(([1^1]^0)^(1^1))+(-(0.0))-(-(-(1.0)))";
-// #elif _POWER_ENABLED_
-// 	"-1.0+1.0+123-(123^1)^1*(20^(20-19*1)-(212-211*1)*1*19)/123-122+(-123.3748-(2.0)^(-1.0))+1^(((1^1)^0)^(1^1))+(-(0.0))-(-(-(1.0)))";
-// #else
-// 	"123-123*(20-(212-211*1)*1*19)/123-122+123";
-// #endif
+	// #if _POWER_ENABLED_ && _BRACES_ENABLED_
+		"-1.0+1.0+123-(123^1)^1*{20^(20-[19*1])-(212-211*1)*1*[19]}/123-122+[[-123.3748]-{2.0}^(-1.0)]+1^(([1^1]^0)^(1^1))+(-(0.0))-(-(-(1.0)))";
+	// #elif _POWER_ENABLED_
+	// 	"-1.0+1.0+123-(123^1)^1*(20^(20-19*1)-(212-211*1)*1*19)/123-122+(-123.3748-(2.0)^(-1.0))+1^(((1^1)^0)^(1^1))+(-(0.0))-(-(-(1.0)))";
+	// #else
+	// 	"123-123*(20-(212-211*1)*1*19)/123-122+123";
+	// #endif
 
 template<typename T>
 std::strstream&& operator<<(std::strstream&& str, T&& e)
@@ -100,7 +99,7 @@ public:
 	double  Calculate();
 
 public:
-	enum Token : unsigned char;
+	enum Token: unsigned char;
 
 private:
 
@@ -147,7 +146,7 @@ private:
 	static const std::unordered_map<char, Token> TokenTable;
 };
 
-enum CSimpleCalculator::Token : unsigned char
+enum CSimpleCalculator::Token: unsigned char
 {
 	NONE,
 	// #if _POWER_ENABLED_
@@ -177,22 +176,22 @@ const size_t CSimpleCalculator::MAX_BUF_SIZE; // = 50
 
 const std::unordered_map<char, EToken> CSimpleCalculator::TokenTable =
 {
-	{ '+', ADD },
-	{ '-', SUB },
-	{ '*', MUL },
-	{ '/', DIV },
-	{ '.', DOT },
-	// #if _POWER_ENABLED_
-	{ '^', POWER },
-	// #endif // _POWER_ENABLED_
-	{ '(', LPARE },
-	{ ')', RPARE },
-	// #if _BRACES_ENABLED_
-	{ '{', LBRACE },
-	{ '}', RBRACE },
-	{ '[', LSQRBR },
-	{ ']', RSQRBR },
-	// #endif // _BRACES_ENABLED_
+	{'+', ADD},
+	{'-', SUB},
+	{'*', MUL},
+	{'/', DIV},
+	{'.', DOT},
+// #if _POWER_ENABLED_
+	{'^', POWER},
+// #endif // _POWER_ENABLED_
+	{'(', LPARE},
+	{')', RPARE},
+// #if _BRACES_ENABLED_
+	{'{', LBRACE},
+	{'}', RBRACE},
+	{'[', LSQRBR},
+	{']', RSQRBR},
+// #endif // _BRACES_ENABLED_
 };
 
 
@@ -213,24 +212,25 @@ EToken CSimpleCalculator::consumeToken()
 		switch( s )
 		{
 		case BEGIN:
-		{
-			if( isdigit(lookAhead()) )
 			{
-				s = IN_NUM;
-				t = NUM; // and we also need m_tokBuff to get the actual number.
-				break;
+				auto chLA = lookAhead();
+
+				if( isdigit(chLA) )
+				{
+					t = NUM;
+					s = IN_NUM;
+					break;
+				}
+
+				auto ptr = TokenTable.find(chLA);
+				if( ptr != TokenTable.end() )
+					t = ptr->second;
+				else
+					t = NONE;
 			}
 
-			auto chLA = lookAhead();
-			auto ptr = TokenTable.find(chLA);
-			if( ptr != TokenTable.end() )
-				t = ptr->second;
-			else
-				t = NONE;
-		}
-
-		s = END;
-		break;
+			s = END;
+			break;
 
 		case IN_NUM:
 			if( isdigit(lookAhead()) )
@@ -238,13 +238,14 @@ EToken CSimpleCalculator::consumeToken()
 			goto __END;
 
 		case END:
-			__END:
-				m_tokBuff[m_bufIdx] = '\0';
-				return t;
-		} // end switch
+		default:
+		__END:
+			m_tokBuff[m_bufIdx] = '\0';
+			return t;
+		} // switch
 
 		m_tokBuff[m_bufIdx++] = consumeChar();
-	} // end while
+	} // while
 }
 
 void CSimpleCalculator::match(Token t)
@@ -263,18 +264,18 @@ void CSimpleCalculator::match(Token t)
 	}
 }
 
-double CSimpleCalculator::factor(bool isStartOfExpr, bool allowPower) // ---> NUM { . NUM } | ([+|-|¦Å]Expr) | factor^factor
-{
-	/*
+/* Grammer synopsis:
 	exp --> term<true> { ('+'|'-') term<false>};
 	term<sign?> --> factor<sign, true> {('*'|'/') factor<false, true>};
 	factor<sign?, power?> if sign && power --> ['+'|'-'] factor<false, true>;
 	factor<sign?, power?> if !sign && power --> factor<false, false> ['^' factor<false, false>];
 	factor<sign?, power?> if !sign && !power --> number | '(' exp ')';
 	number --> digits['.' digits].
-	*/
+*/
 
-	double res = 0;
+double CSimpleCalculator::factor(bool isStartOfExpr, bool allowPower)
+{
+	double res = 0.0;
 
 	if( isStartOfExpr && allowPower )
 	{
@@ -286,7 +287,7 @@ double CSimpleCalculator::factor(bool isStartOfExpr, bool allowPower) // ---> NU
 			match(m_currTok);
 		}
 
-		res = factor(FORBID_FREE_SIGN, ALLOW_POWER); // i.e., res = factor(false, true); Here "(false, true)" means : forbids free sign , allows performing power calculation
+		res = factor(FORBID_FREE_SIGN, ALLOW_POWER);
 
 		if( negate )
 			res = -res;
@@ -303,23 +304,23 @@ double CSimpleCalculator::factor(bool isStartOfExpr, bool allowPower) // ---> NU
 	}
 	else if( !isStartOfExpr && !allowPower )
 	{
-		// #if _BRACES_ENABLED_
+// #if _BRACES_ENABLED_
 		if( LPARE == m_currTok || LBRACE == m_currTok || LSQRBR == m_currTok )
-			// #else
-			// 		if( LPARE == m_currTok )
-			// #endif
+// #else
+// 		if( LPARE == m_currTok )
+// #endif
 		{
-			// #if _BRACES_ENABLED_
-			Token rightTok = s_getCounterpart(m_currTok); // save m_currTok
+// #if _BRACES_ENABLED_
+			Token rightTok = s_getCounterpart(m_currTok);
 
-			match(m_currTok); // match the left brace/sqr-brace/parenthese
+			match(m_currTok);
 			res = expr();
-			match(rightTok); // get the corresponding right brace/sqr-brace/parenthese and match it.
-							 // #else
-							 // 			match(LPARE);
-							 // 			res = expr();
-							 // 			match(RPARE);
-							 // #endif
+			match(rightTok);
+// #else
+// 			match(LPARE);
+// 			res = expr();
+// 			match(RPARE);
+// #endif
 		}
 		else if( NUM == m_currTok )
 		{
@@ -348,15 +349,15 @@ double CSimpleCalculator::factor(bool isStartOfExpr, bool allowPower) // ---> NU
 #if _BRACES_ENABLED_
 	if( LPARE == m_currTok || LBRACE == m_currTok || LSQRBR == m_currTok )
 #else
-	if( LPARE == m_currTok )
+	if(LPARE == m_currTok)
 #endif
 	{
 #if _BRACES_ENABLED_
-		Token rightTok = s_getCounterpart(m_currTok); // save m_currTok
+		Token rightTok = s_getCounterpart(m_currTok);
 
-		match(m_currTok); // match the left brace/sqr-brace/parenthese
+		match(m_currTok);
 		res = expr();
-		match(rightTok); // get the corresponding right brace/sqr-brace/parenthese and match it.
+		match(rightTok);
 #else
 		match(LPARE);
 		res = expr();
@@ -380,17 +381,16 @@ double CSimpleCalculator::factor(bool isStartOfExpr, bool allowPower) // ---> NU
 	}
 	else if( PLUS == m_currTok || MINUS == m_currTok ) // explicitly signed number
 	{
-		if( isStartOfExpr ) // if the leading sign(+ or -) is the start of the current expression, then accept it (as a free sign).
+		if( isStartOfExpr )
 		{
 			bool isNeg = (MINUS == m_currTok);
 
 			match(m_currTok);
-			res = factor(FORBID_FREE_SIGN, ALLOW_POWER); // i.e., res = factor(false, true); Here "(false, true)" means : forbids free sign , allows performing power calculation
+			res = factor(FORBID_FREE_SIGN, ALLOW_POWER);
 			res = isNeg ? -res : +res;
 		}
-		else // if the sign is not at the begining of the expression, then syntax error occurs and reject it.
-			notifErr(m_currTok); // there is no parentheses surrounding the explicitly signed number!
-								 // program halted.
+		else // if the sign is not at the beginning of the (sub)expression, then syntax error occurs and reject it.
+			notifErr(m_currTok); // there is no parentheses surrounding the explicitly signed number! Program halted.
 	}
 
 #if _POWER_ENABLED_
@@ -412,7 +412,7 @@ double CSimpleCalculator::factor(bool isStartOfExpr, bool allowPower) // ---> NU
 #endif
 }
 
-double CSimpleCalculator::term(bool isStartOfExpr) // ---> factor { [*|/] factor }
+double CSimpleCalculator::term(bool isStartOfExpr)
 {
 	double res = factor(isStartOfExpr, ALLOW_POWER);
 
@@ -436,9 +436,9 @@ double CSimpleCalculator::term(bool isStartOfExpr) // ---> factor { [*|/] factor
 	}
 }
 
-double CSimpleCalculator::expr() // ---> term { [+|-] term }
+double CSimpleCalculator::expr()
 {
-	double res = term(ALLOW_FREE_SIGN); //term(true);//"true": it is the begining of a expression. In every recursion circle(from expr to factor), it is set "true" here.
+	double res = term(ALLOW_FREE_SIGN);
 
 	while( true )
 	{
@@ -446,7 +446,7 @@ double CSimpleCalculator::expr() // ---> term { [+|-] term }
 		{
 		case ADD:
 			match(ADD);
-			res += term(FORBID_FREE_SIGN); //term(false);//"false": now, it is NOT the begining of a expression.
+			res += term(FORBID_FREE_SIGN);
 			break;
 
 		case SUB:
@@ -471,7 +471,7 @@ void CSimpleCalculator::notifErr(Token currTok) const
 	if( SUB == currTok )
 		throw MyException{ std::strstream{} << "Illegal negative sign!" << '\n' };
 	else
-		throw MyException{ std::strstream{} << "Illegal positive sign!" << '\n' };
+		throw MyException{std::strstream{} << "Illegal positive sign!" << '\n' };
 }
 
 double CSimpleCalculator::s_assertNotZero(double dbl)
@@ -480,7 +480,7 @@ double CSimpleCalculator::s_assertNotZero(double dbl)
 		return dbl;
 	else
 	{
-		throw MyException{ std::strstream{} << "Error: Divided by Zero!" << '\n' };
+		throw MyException{std::strstream{} << "Error: Divided by Zero!" << '\n' };
 	}
 	//return 1.0;
 }
@@ -496,8 +496,8 @@ EToken CSimpleCalculator::s_getCounterpart(Token t)
 		return RBRACE;
 	case LSQRBR:
 		return RSQRBR;
-	default:
-		break;
+    default:
+        break;
 	}
 	return NONE;
 }
@@ -511,7 +511,7 @@ class MyCalculator
 public:
 	MyCalculator(std::string s);
 
-	double Calculate(); // Don't use auto type specifier for interface declaration.
+	double Calculate();
 
 	~MyCalculator();
 
@@ -538,19 +538,19 @@ int TEST_ENTRY(int ret = 0)
 	MyCalculator sc(cMathExpr);
 	cout << sc.Calculate() << endl;
 
-	TEST_RETURN(ret);
+    TEST_RETURN(ret);
 }
 
 int TEST_ENTRY(int argc, const char* args[])
 {
-	TEST_RETURN(TEST_ENTRY());
+    TEST_RETURN(TEST_ENTRY());
 }
 
 } // namespace
 
 int TEST_ENTRY(int argc, const char* args[])
 {
-	namespace TEST_NS = ns1;
+    namespace TEST_NS = ns1;
 
-	return TEST_NS::TEST_ENTRY(argc, args);
+    return TEST_NS::TEST_ENTRY(argc, args);
 }
