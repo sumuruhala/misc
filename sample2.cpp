@@ -5,8 +5,29 @@
 #endif
 #define TEST_RETURN(_Ret)   return _Ret
 
+#if 1
+
+template<typename T>
+struct XXXXXXXXXXXXXXXXXXXX__deduced_type_is_;
+
+#	define SHOW_T(TYPE)\
+		XXXXXXXXXXXXXXXXXXXX__deduced_type_is_<TYPE>{}
+
+#	define EXPR_T(EXPR)\
+		XXXXXXXXXXXXXXXXXXXX__deduced_type_is_<decltype(EXPR)>{}
+
+#else
+
+#	define SHOW_T(TYPE)
+#	define EXPR_T(EXPR)
+
+#endif
+
 #include<iostream>
 #include<cstdio>
+#if 0
+#	include"header.h"
+#endif
 
 using namespace std;
 //--------------------------------------------------------
@@ -39,7 +60,7 @@ constexpr size_t MAX_STR_SIZE = 200;
 
 char cMathExpr[MAX_STR_SIZE] =
 	// #if _POWER_ENABLED_ && _BRACES_ENABLED_
-		"-1.0+1.0+123-(123^1)^1*{20^(20-[19*1])-(212-211*1)*1*[19]}/123-122+[[-123.3748]-{2.0}^(-1.0)]+1^(([1^1]^0)^(1^1))+(-(0.0))-(-(-(1.0)))";
+		"-1.0+ 1 . 0+123-(123^1)^1*{20^(20-[19*1])-(212-211*1)*1*[19]}/123-122+[[-123.3748]-{2.0}^(-1.0)]+1^(([1^1]^0)^(1^1))+(-(0.0))-(-(-(1.0)))";
 	// #elif _POWER_ENABLED_
 	// 	"-1.0+1.0+123-(123^1)^1*(20^(20-19*1)-(212-211*1)*1*19)/123-122+(-123.3748-(2.0)^(-1.0))+1^(((1^1)^0)^(1^1))+(-(0.0))-(-(-(1.0)))";
 	// #else
@@ -89,7 +110,7 @@ const char* MyException::what() const noexcept
 class DLLEXPORT CSimpleCalculator
 {
 public:
-	explicit CSimpleCalculator(std::string pstrExpression = "\0");
+	explicit CSimpleCalculator(std::string pstrExpression = "");
 
 	CSimpleCalculator(CSimpleCalculator&&) = default;
 	CSimpleCalculator& operator=(CSimpleCalculator&&) = default;
@@ -102,15 +123,14 @@ public:
 	enum Token: unsigned char;
 
 private:
+	char lookAhead() const
+	{
+		return m_strExp[m_strIdx];
+	}
 
 	char consumeChar()
 	{
 		return m_strExp[m_strIdx++];
-	}
-
-	char lookAhead() const
-	{
-		return m_strExp[m_strIdx];
 	}
 
 	Token consumeToken();
@@ -213,23 +233,25 @@ EToken CSimpleCalculator::consumeToken()
 		{
 		case BEGIN:
 			{
+				while( isspace(lookAhead()) )
+					consumeChar();
+
 				auto chLA = lookAhead();
+				if( char{} == chLA )
+					goto __END;
 
 				if( isdigit(chLA) )
 				{
 					t = NUM;
 					s = IN_NUM;
-					break;
 				}
-
-				auto ptr = TokenTable.find(chLA);
-				if( ptr != TokenTable.end() )
-					t = ptr->second;
 				else
-					t = NONE;
+				{
+					auto ptr = TokenTable.find(chLA);
+					t = ( ptr != TokenTable.end() ) ? ptr->second : NONE;
+					s = END;
+				}
 			}
-
-			s = END;
 			break;
 
 		case IN_NUM:
@@ -240,7 +262,7 @@ EToken CSimpleCalculator::consumeToken()
 		case END:
 		default:
 		__END:
-			m_tokBuff[m_bufIdx] = '\0';
+			m_tokBuff[m_bufIdx] = char{};
 			return t;
 		} // switch
 
@@ -535,9 +557,8 @@ MyCalculator::~MyCalculator() = default;
 
 int TEST_ENTRY(int ret = 0)
 {
-	MyCalculator sc(cMathExpr);
-	cout << sc.Calculate() << endl;
-
+    MyCalculator sc(cMathExpr);
+    cout << sc.Calculate() << endl;
     TEST_RETURN(ret);
 }
 
