@@ -44,27 +44,20 @@ using namespace std;
 namespace ns1 {
 
 
-// #define _POWER_ENABLED_      1
-// #define _BRACES_ENABLED_ 1
+// #define _BRACT_ENABLED_ 1
 
 
 enum
 {
-    ALLOW_FREE_SIGN = true, /*"free sign": the explicit sign charactor that can be "freely" put at the front of a number, that is, whitout parentheses surrounding the sign charactor and the number.*/
-    FORBID_FREE_SIGN = false,
     ALLOW_POWER = true,
     FORBID_POWER = false,
 };
 
 constexpr size_t MAX_STR_SIZE = 200;
 
-char MathExpr[MAX_STR_SIZE] =
-    // #if _POWER_ENABLED_ && _BRACES_ENABLED_
-        /*-123.875 ==*/"-1.0+ 1 . 0+123-(123^1)^1*{20^(20-[19*1])-(212-211*1)*1*[19]}/123-122+[[-123.3748]-{2.0}^(-1.0)]+1^(([1^1]^0)^(1^1))+(-(0.0))-(-(-(1.0)))";
-    // #elif _POWER_ENABLED_
-    //  "-1.0+1.0+123-(123^1)^1*(20^(20-19*1)-(212-211*1)*1*19)/123-122+(-123.3748-(2.0)^(-1.0))+1^(((1^1)^0)^(1^1))+(-(0.0))-(-(-(1.0)))";
-    // #else
-    //  "123-123*(20-(212-211*1)*1*19)/123-122+123";
+static char TEST_EXPR[MAX_STR_SIZE] =
+    // #if _BRACT_ENABLED_
+        /*-123.875 ==*/"-1.0+ 1 . 0!+123-(123^1)^1 !! *{20^(20-[19*1!])-(212-211*1)*1*[19]}/123-122+[[-123.3748]-{2.0}!^(-1.0)]+1^(([1^1]^0)^(1^1))+(-(0.0))-(-(-(1.0)))!";
     // #endif
 
 template<typename T>
@@ -130,25 +123,22 @@ public:
     enum EToken: unsigned char
     {
         NONE,
-        // #if _POWER_ENABLED_
-        POWER,
-        // #endif
-        // #if _BRACES_ENABLED_
-        LBRACE,
-        RBRACE,
-        LSQRBR,
-        RSQRBR,
-        // #endif
-        LPARE,
-        RPARE,
+        CARET,
+        // #if _BRACT_ENABLED_
+        LBRACT,
+        RBRACT,
+        LSQBRACT,
+        RSQBRACT,
+        // #endif // _BRACT_ENABLED_
+        LPAREN,
+        RPAREN,
         NUM,
         DOT,
-        ADD,
-        PLUS = ADD,
-        SUB,
-        MINUS = SUB,
-        MUL,
-        DIV,
+        PLUS,
+        MINUS,
+        ASTER,
+        SLASH,
+        EXCLMK,
     };
 
     static const std::unordered_map<char, EToken> TokenTable;
@@ -195,22 +185,21 @@ const size_t CParser::MAX_BUF_SIZE;
 
 const std::unordered_map<char, EToken> CParser::TokenTable =
 {
-    {'+', ADD}, // or PLUS
-    {'-', SUB}, // or MINUS
-    {'*', MUL},
-    {'/', DIV},
+    {'+', PLUS},
+    {'-', MINUS},
+    {'*', ASTER},
+    {'/', SLASH},
     {'.', DOT},
-// #if _POWER_ENABLED_
-    {'^', POWER},
-// #endif // _POWER_ENABLED_
-    {'(', LPARE},
-    {')', RPARE},
-// #if _BRACES_ENABLED_
-    {'{', LBRACE},
-    {'}', RBRACE},
-    {'[', LSQRBR},
-    {']', RSQRBR},
-// #endif // _BRACES_ENABLED_
+    {'^', CARET},
+    {'(', LPAREN},
+    {')', RPAREN},
+// #if _BRACT_ENABLED_
+    {'{', LBRACT},
+    {'}', RBRACT},
+    {'[', LSQBRACT},
+    {']', RSQBRACT},
+    {'!', EXCLMK},
+// #endif // _BRACT_ENABLED_
 };
 
 CParser::CParser(std::string strExpr)
@@ -256,16 +245,18 @@ public:
 private:
     void consumeToken() override;
 
-    void notifErr(EToken) const;
-
-    double factor(bool, bool);
-    double term(bool);
+    double factor(bool);
+    double term();
     double expr();
+
+    unsigned long long factorial(bool, char);
 
     static double s_assertNotZero(double);
     static EToken s_getCounterpart(EToken);
 
 private:
+    static constexpr char MAX_FACTORIAL_NUM = 20; // 20! < max(ui64)
+
     enum status
     {
         IN_NUM,
@@ -329,65 +320,49 @@ void CSimpleCalculator::consumeToken() // override
     } // while
 }
 
-/* Grammer synopsis:
-    expr --> term<true> { ('+'|'-') term<false>};
-    term<sign?> --> factor<sign, true> {('*'|'/') factor<false, true>};
-    factor<sign?, power?> if sign && power --> ['+'|'-'] factor<false, true>;
-    factor<sign?, power?> if !sign && power --> factor<false, false> ['^' factor<false, false>];
-    factor<sign?, power?> if !sign && !power --> number | '(' expr ')';
-    number --> digits['.' digits].
+/*
+Grammar synopsis:
+
+    expr --> ['+' | '-'] term {('+' | '-') term};
+    term --> factor<true> {('*' | '/') factor<true>};
+    factor<power?> if power --> factor<false> ['^' factor<false>];
+    factor<power?> if !power --> (number | '(' expr ')') ['!' ['!']];
+    number --> digits ['.' digits].
 */
 
-double CSimpleCalculator::factor(bool isStartOfExpr, bool allowPower)
+double CSimpleCalculator::factor(bool allowPower)
 {
     double res = NAN; // Important: NAN!
 
-    if( isStartOfExpr && allowPower )
+    if( allowPower )
     {
-        bool negate = false;
+        res = factor(FORBID_POWER);
 
-        if( PLUS == lookAheadToken() || MINUS == lookAheadToken() ) // explicitly signed number
-        {
-            negate = (MINUS == lookAheadToken());
-            consumeToken();
-        }
-
-        res = factor(FORBID_FREE_SIGN, ALLOW_POWER);
-
-        if( negate )
-            res = -res;
-    }
-    else if( !isStartOfExpr && allowPower )
-    {
-        res = factor(FORBID_FREE_SIGN, FORBID_POWER);
-
-        if( POWER == lookAheadToken() )
+        if( CARET == lookAheadToken() )
         {
             consumeToken();
-            res = pow(res, factor(FORBID_FREE_SIGN, FORBID_POWER));
+            res = pow(res, factor(FORBID_POWER));
         }
     }
-    else if( !isStartOfExpr && !allowPower )
+    else if( !allowPower )
     {
-// #if _BRACES_ENABLED_
-        if( LPARE == lookAheadToken()
-            || LBRACE == lookAheadToken()
-            || LSQRBR == lookAheadToken()
+        if( LPAREN == lookAheadToken()
+// #if _BRACT_ENABLED_
+            || LBRACT == lookAheadToken()
+            || LSQBRACT == lookAheadToken()
+// #endif // _BRACT_ENABLED_
         )
-// #else
-//      if( LPARE == lookAheadToken() )
-// #endif
         {
-// #if _BRACES_ENABLED_
+// #if _BRACT_ENABLED_
             EToken rightTok = s_getCounterpart(lookAheadToken());
 
             consumeToken();
             res = expr();
             consume(rightTok);
 // #else
-//          consume(LPARE);
+//          consumeToken();
 //          res = expr();
-//          consume(RPARE);
+//          consume(RPAREN);
 // #endif
         }
         else if( NUM == lookAheadToken() )
@@ -411,27 +386,48 @@ double CSimpleCalculator::factor(bool isStartOfExpr, bool allowPower)
         {
             throw MyException{ std::strstream{} << "Rule: Factor<false, false> not matched !" << '\n' };
         }
+
+        if( EXCLMK == lookAheadToken() )
+        {
+            if( res < 0.0 )
+                throw MyException{ std::strstream{} << "factorial: Minus number!.\n" };
+
+            consumeToken();
+
+            bool bDblFac = false;
+            if( EXCLMK == lookAheadToken() )
+            {
+                bDblFac = true;
+                consumeToken();
+            }
+
+            auto ullRes = static_cast<unsigned long long>(res); // to integral
+            if( MAX_FACTORIAL_NUM < ullRes )
+                throw MyException{ std::strstream{} << "factorial: Too large base number! (Max limit == " << std::to_string(MAX_FACTORIAL_NUM) << "!).\n" };
+
+            res = static_cast<double>(factorial(bDblFac, ullRes));
+        }
     }
 
     return res;
 }
 
-double CSimpleCalculator::term(bool isStartOfExpr)
+double CSimpleCalculator::term()
 {
-    double res = factor(isStartOfExpr, ALLOW_POWER);
+    double res = factor(ALLOW_POWER);
 
     while( true )
     {
         switch( lookAheadToken() )
         {
-        case MUL:
-            consume(MUL);
-            res *= factor(FORBID_FREE_SIGN, ALLOW_POWER);
+        case ASTER:
+            consumeToken();
+            res *= factor(ALLOW_POWER);
             break;
 
-        case DIV:
-            consume(DIV);
-            res /= s_assertNotZero(factor(FORBID_FREE_SIGN, ALLOW_POWER));
+        case SLASH:
+            consumeToken();
+            res /= s_assertNotZero(factor(ALLOW_POWER));
             break;
 
         default:
@@ -442,20 +438,29 @@ double CSimpleCalculator::term(bool isStartOfExpr)
 
 double CSimpleCalculator::expr()
 {
-    double res = term(ALLOW_FREE_SIGN);
+    bool bNegFirstTerm = false;
+    if( PLUS == lookAheadToken() || MINUS == lookAheadToken() )
+    {
+        bNegFirstTerm = (MINUS == lookAheadToken());
+        consumeToken();
+    }
+
+    double res = term();
+    if( bNegFirstTerm )
+        res = -res;
 
     while( true )
     {
         switch( lookAheadToken() )
         {
-        case ADD:
-            consume(ADD);
-            res += term(FORBID_FREE_SIGN);
+        case PLUS:
+            consumeToken();
+            res += term();
             break;
 
-        case SUB:
-            consume(SUB);
-            res -= term(FORBID_FREE_SIGN);
+        case MINUS:
+            consumeToken();
+            res -= term();
             break;
 
         default:
@@ -470,14 +475,6 @@ double CSimpleCalculator::Calculate()
     return expr();
 }
 
-void CSimpleCalculator::notifErr(EToken currTok) const
-{
-    if( SUB == currTok )
-        throw MyException{ std::strstream{} << "Illegal negative sign!" << '\n' };
-    else
-        throw MyException{ std::strstream{} << "Illegal positive sign!" << '\n' };
-}
-
 double CSimpleCalculator::s_assertNotZero(double dbl)
 {
     if( dbl != 0.0 )
@@ -486,28 +483,37 @@ double CSimpleCalculator::s_assertNotZero(double dbl)
     {
         throw MyException{ std::strstream{} << "Error: Divided by Zero!" << '\n' };
     }
-    //return 1.0;
 }
 
-// #if _BRACES_ENABLED_
+// #if _BRACT_ENABLED_
 EToken CSimpleCalculator::s_getCounterpart(EToken t)
 {
     switch( t )
     {
-    case LPARE:
-        return RPARE;
-    case LBRACE:
-        return RBRACE;
-    case LSQRBR:
-        return RSQRBR;
+    case LPAREN:
+        return RPAREN;
+    case LBRACT:
+        return RBRACT;
+    case LSQBRACT:
+        return RSQBRACT;
     default:
         break;
     }
     return NONE;
 }
-// #endif
+// #endif // _BRACT_ENABLED_
 
+unsigned long long CSimpleCalculator::factorial(bool bDblFac, char val)
+{
+    using ull = unsigned long long;
+    if( 1 >= val )
+        return ull(1);
+    return factorial(bDblFac, val - (bDblFac ? 2 : 1)) * ull(val);
+}
 
+// ----------------------------------------------------------------------------
+// Calculator Interface
+// ----------------------------------------------------------------------------
 
 class MyCalculator
 {
@@ -530,11 +536,13 @@ double MyCalculator::Calculate()
     return my_upImpl->Calculate();
 }
 
-
+// ----------------------------------------------------------------------------
+// Test
+// ----------------------------------------------------------------------------
 
 int TEST_ENTRY(int ret = 0)
 {
-    MyCalculator sc(MathExpr);
+    MyCalculator sc(TEST_EXPR);
     cout<< sc.Calculate() <<endl;
 
     TEST_RETURN(ret);
