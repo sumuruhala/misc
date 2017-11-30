@@ -78,39 +78,39 @@ template<val_t... _Vs>
 struct acc;
 
 template<typename _S, typename _A, int _M, int _B, int _E, bool _Lt = (_M < _E)>
-struct collect_impl_acc;
+struct slice_impl_acc;
 
 template<val_t _V, val_t... _Vs, val_t... _As, int _M, int _B, int _E>
-struct collect_impl_acc<seq<_V, _Vs...>, acc<_As...>, _M, _B, _E, true> : collect_impl_acc<seq<_Vs...>, acc<_As..., _V>, _M + 1, _B, _E>
+struct slice_impl_acc<seq<_V, _Vs...>, acc<_As...>, _M, _B, _E, true> : slice_impl_acc<seq<_Vs...>, acc<_As..., _V>, _M + 1, _B, _E>
 {
 };
 
 template<typename _S, val_t... _As, int _B, int _E>
-struct collect_impl_acc<_S, acc<_As...>, _E, _B, _E, false>
+struct slice_impl_acc<_S, acc<_As...>, _E, _B, _E, false>
 {
     using type = acc<_As...>;
 };
 
 template<typename _S, int _I, int _B, int _E, bool _Lt = (_I < _B)>
-struct collect_impl_skip;
+struct slice_impl_skip;
 
 template<val_t _V, val_t... _Vs, int _I, int _B, int _E>
-struct collect_impl_skip<seq<_V, _Vs...>, _I, _B, _E, true> : collect_impl_skip<seq<_Vs...>, _I + 1, _B, _E>
+struct slice_impl_skip<seq<_V, _Vs...>, _I, _B, _E, true> : slice_impl_skip<seq<_Vs...>, _I + 1, _B, _E>
 {
 };
 
 template<typename _S, int _B, int _E>
-struct collect_impl_skip<_S, _B, _B, _E, false> : collect_impl_acc<_S, acc<>, _B, _B, _E>
+struct slice_impl_skip<_S, _B, _B, _E, false> : slice_impl_acc<_S, acc<>, _B, _B, _E>
 {
 };
 
 template<typename _S, int _B, int _E>
-struct collect : collect_impl_skip<_S, 0, _B, _E>
+struct slice : slice_impl_skip<_S, 0, _B, _E>
 {
 };
 
 template<typename _S, int _B, int _E>
-using collect_t = typename collect<_S, _B, _E>::type;
+using slice_t = typename slice<_S, _B, _E>::type;
 
 template<val_t _VL, val_t _VR, typename _AccL, typename _AccM, typename _AccR>
 struct swap_impl;
@@ -128,7 +128,7 @@ template<typename _S, int _I, int _J>
 using swap_t = typename swap<_S, _I, _J>::type;
 
 template<val_t... _Vs, int _I, int _J>
-struct swap<seq<_Vs...>, _I, _J> : swap_impl<val_at_v<seq<_Vs...>, (_I < _J ? _I : _J)>, val_at_v<seq<_Vs...>, (_I < _J ? _J : _I)>, collect_t<seq<_Vs...>, 0, (_I < _J ? _I : _J)>, collect_t<seq<_Vs...>, (_I < _J ? _I : _J) + 1, (_I < _J ? _J : _I)>, collect_t<seq<_Vs...>, (_I < _J ? _J : _I) + 1, sizeof...(_Vs)>>
+struct swap<seq<_Vs...>, _I, _J> : swap_impl<val_at_v<seq<_Vs...>, (_I < _J ? _I : _J)>, val_at_v<seq<_Vs...>, (_I < _J ? _J : _I)>, slice_t<seq<_Vs...>, 0, (_I < _J ? _I : _J)>, slice_t<seq<_Vs...>, (_I < _J ? _I : _J) + 1, (_I < _J ? _J : _I)>, slice_t<seq<_Vs...>, (_I < _J ? _J : _I) + 1, sizeof...(_Vs)>>
 {
 };
 
